@@ -1,4 +1,3 @@
 requests
-twilio.rest
-os
-dotenv
+twilio
+python-dotenv
