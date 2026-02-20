@@ -1,38 +1,37 @@
-# To run and test the code you need to update 4 places:
-# 1. Change MY_EMAIL/MY_PASSWORD to your own details.
-# 2. Go to your email provider and make it allow less secure apps.
-# 3. Update the SMTP ADDRESS to match your email provider.
-# 4. Update birthdays.csv to contain today's month and day.
-# See the solution video in the 100 Days of Python Course for explainations.
-
-
-from datetime import datetime
-import pandas
-import random
-import smtplib
+import requests
+from twilio.rest import Client
 import os
+from dotenv import load_dotenv
 
-# import os and use it to get the Github repository secrets
-MY_EMAIL = os.environ.get("MY_EMAIL")
-MY_PASSWORD = os.environ.get("MY_PASSWORD")
+load_dotenv(".env")
+OMW_Endpoint = "https://api.openweathermap.org/data/2.5/forecast?"
+api_key = os.getenv("OMW_API_KEY")
 
-today = datetime.now()
-today_tuple = (today.month, today.day)
+account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
-data = pandas.read_csv("birthdays.csv")
-birthdays_dict = {(data_row["month"], data_row["day"])                  : data_row for (index, data_row) in data.iterrows()}
-if today_tuple in birthdays_dict:
-    birthday_person = birthdays_dict[today_tuple]
-    file_path = f"letter_templates/letter_{random.randint(1, 3)}.txt"
-    with open(file_path) as letter_file:
-        contents = letter_file.read()
-        contents = contents.replace("[NAME]", birthday_person["name"])
+weather_params = {
+    "lat":-1.3026148,
+    "lon":36.828842,
+    "appid": api_key,
+    "cnt": 4,
+}
+response = requests.get(OMW_Endpoint, params=weather_params) #Supposed to use the.get functionality
+response.raise_for_status() #Raises an exception for everything other than a successful response code.
+data = response.json()
+weather_codes = [dictionary["weather"][0]["id"] for dictionary in data["list"]]
+will_rain = False
+for code in weather_codes:
+    if code < 700:
+        will_rain = True
 
-    with smtplib.SMTP("YOUR EMAIL PROVIDER SMTP SERVER ADDRESS") as connection:
-        connection.starttls()
-        connection.login(MY_EMAIL, MY_PASSWORD)
-        connection.sendmail(
-            from_addr=MY_EMAIL,
-            to_addrs=birthday_person["email"],
-            msg=f"Subject:Happy Birthday!\n\n{contents}"
-        )
+if will_rain:
+    client = Client(account_sid,auth_token)
+    message = client.messages.create(
+        body = "Carry an Umbrella. Its gonna rain!!",
+        from_ = "whatsapp:+14155238886",
+        to= "whatsapp:+254714938076"
+    )
+    print(message.status)
+else:
+    print("No rain predicted, so no message was sent.")
